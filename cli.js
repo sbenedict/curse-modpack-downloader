@@ -9,28 +9,14 @@ const requestPromise = require('request-promise-native');
 
 const BASE_URL = "https://addons-ecs.forgesvc.net/api/v2";
 
-function createModpacksFolder() {
+function createFolder(path) {
     try {
-        fs.mkdirSync("./modpacks");
+        fs.mkdirSync(path);
     } catch (err) {
         if (err.code != "EEXIST") {
-            console.error("ERROR: Can't create modpacks folder! Make sure that program has access to current folder.");
+            console.error(`ERROR: Can't create folder "${path}"! Make sure that program has access to current folder.`);
             process.exit(1);
         }
-    }
-}
-
-function createProjectFolder(projectName) {
-    try {
-        fs.mkdirSync('./modpacks/' + projectName);
-    } catch(err) {
-        if(err.code == "EEXIST") {
-            console.error(`ERROR: There's already folder for a project ${projectName}. To download it again, delete this folder.`);
-        }
-        else {
-            console.error("ERROR: Can't create project folder! Make sure that program has access to current folder.");
-        }
-        process.exit(1);
     }
 }
 
@@ -168,6 +154,17 @@ function removeIllegalCharactersFromFilename(filename) {
     return filename.replace(/[/\\?%*:|"<>]/g, '-');
 }
 
+function fileExists(path) {
+    try {
+        return fs.statSync(path) !== null;
+    } catch (err) {
+        if (err.code == "ENOENT") {
+            return false;
+        }
+        throw err;
+    }
+}
+
 /**
  * 
  * @param {string[]} argv 
@@ -186,24 +183,26 @@ async function main(argv) {
     else {
         latest = await getLatestProjectFileUrlById(project);
     }
-    createModpacksFolder();
+    createFolder("./modpacks");
     const projectFolderName = removeIllegalCharactersFromFilename(latest.version);
-    createProjectFolder(projectFolderName);
+    createFolder('./modpacks/' + projectFolderName);
     const projectFolderPath = path.resolve(`./modpacks/${projectFolderName}`);
     const projectArchivePath = `${projectFolderPath}/${latest.fileName}`
 
-    console.log("Downloading project main file v." + latest.version);
-    await downloadFile(latest.url, projectArchivePath);
+    if (!fileExists(projectArchivePath)) {
+        console.log("Downloading project main file v." + latest.version);
+        await downloadFile(latest.url, projectArchivePath);
 
-    console.log("Extracting...");
-    await extractZip(projectArchivePath, {dir: path.join(projectFolderPath, 'extracted')});
-    console.log("Extracted");
+        console.log("Extracting...");
+        await extractZip(projectArchivePath, {dir: path.join(projectFolderPath, 'extracted')});
+        console.log("Extracted");
+    }
 
     const manifest = loadManifest(path.join(projectFolderPath, "extracted", "manifest.json"));
     const dotMinecraft = path.join(projectFolderPath, ".minecraft");
-    fs.mkdirSync(dotMinecraft);
+    createFolder(dotMinecraft);
     const modsPath = path.join(dotMinecraft, "mods");
-    fs.mkdirSync(modsPath);
+    createFolder(modsPath);
     
     console.log("Generating file list...");
     const fileList = await generateFileListFromManifest(manifest);
