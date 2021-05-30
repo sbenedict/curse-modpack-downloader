@@ -89,7 +89,7 @@ async function getProjectFiles(projectId) {
  */
 async function getLatestProjectFileUrl(projectSlug) {
     const project = await getProjectBySlug(projectSlug);
-    const defaultFile = project.latestFiles.filter(x => x.id == project.defaultFileId)[0];
+    const defaultFile = await getLatestProjectFile(project);
     return {
         url: defaultFile.downloadUrl,
         version: defaultFile.displayName,
@@ -104,7 +104,7 @@ async function getLatestProjectFileUrl(projectSlug) {
  */
 async function getLatestProjectFileUrlById(projectId) {
     const project = await getProjectById(projectId);
-    const defaultFile = project.latestFiles.filter(x => x.id == project.defaultFileId)[0];
+    const defaultFile = await getLatestProjectFile(project);
     return {
         url: defaultFile.downloadUrl,
         version: defaultFile.displayName,
@@ -132,6 +132,19 @@ async function getProjectFile(projectId, fileId) {
     }
     console.error(`File ${fileId} not found in project ${projectId}.`);
     process.exit(1);
+}
+
+/**
+ * 
+ * @param { project } project project
+ * @returns { file } file
+ */
+async function getLatestProjectFile(project) {
+    const file = project.latestFiles
+        .filter(x => x.isServerPack === false)
+        .sort((a, b) => Date.parse(b.fileDate) - Date.parse(a.fileDate))
+        [0]
+    return await getProjectFile(file.projectId, file.id);
 }
 
 function loadManifest(path) {
