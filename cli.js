@@ -4,7 +4,6 @@ const fs = require('fs-extra');
 const { promisify } = require('util');
 const extractZip = promisify(require('extract-zip'));
 const path = require('path');
-const { JSDOM } = require('jsdom');
 const requestPromise = require('request-promise-native');
 const BASE_URL = "https://addons-ecs.forgesvc.net/api/v2";
 
