@@ -8,6 +8,7 @@ const { JSDOM } = require('jsdom');
 const requestPromise = require('request-promise-native');
 
 const BASE_URL = "https://addons-ecs.forgesvc.net/api/v2";
+const CF_BASE_URL = "https://www.curseforge.com/minecraft/modpacks/";
 
 function createFolder(path) {
     try {
@@ -18,6 +19,31 @@ function createFolder(path) {
             process.exit(1);
         }
     }
+}
+
+/**
+ * 
+ * @param {string} projectUrl project URL or slug
+ * @returns {string|null} project id
+ */
+async function getProjectIdByUrl(projectUrl) {
+    if (projectUrl.match(/^https?:\/\//i) === null) {
+        projectUrl = `${CF_BASE_URL}${projectUrl}`;
+    }
+    try {
+        const jsdom = await JSDOM.fromURL(projectUrl);
+        const projectId = Array.from(jsdom.window.document.querySelectorAll("div > span + span"))
+            .filter(x => x.previousElementSibling.innerText === "Project ID")
+            .map(x => x.innerText)
+            [0];
+        if (!projectId) {
+            return null;
+        }
+        return projectId;
+    } catch (err) {
+        console.error(err);
+        process.exit(1);
+    }    
 }
 
 /**
@@ -84,11 +110,11 @@ async function getProjectFiles(projectId) {
 
 /**
  * 
- * @param {string} projectSlug project slug
+ * @param {string} projectSlugOrUrl project slug or complete url
  * @returns { { url: string, version: string, fileName: string } }
  */
-async function getLatestProjectFileUrl(projectSlug) {
-    const project = await getProjectBySlug(projectSlug);
+async function getLatestProjectFileUrl(projectSlugOrUrl) {
+    const project = await getProjectByUrl(projectSlugOrUrl);
     const defaultFile = await getLatestProjectFile(project);
     return {
         url: defaultFile.downloadUrl,
@@ -191,7 +217,12 @@ async function main(argv) {
     let latest;
     if (isNaN(parseInt(project, 10))) {
         console.log("Searching for project main file");
-        latest = await getLatestProjectFileUrl(project);
+        const projectId = await getProjectIdByUrl(project);
+        if (projectId === null) {
+            console.error(`ERROR: Project not found.`);
+            process.exit(1);
+        }
+        latest = await getLatestProjectFileUrlById(projectId);
     }
     else {
         latest = await getLatestProjectFileUrlById(project);
