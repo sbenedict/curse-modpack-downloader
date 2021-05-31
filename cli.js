@@ -6,9 +6,7 @@ const extractZip = promisify(require('extract-zip'));
 const path = require('path');
 const { JSDOM } = require('jsdom');
 const requestPromise = require('request-promise-native');
-
 const BASE_URL = "https://addons-ecs.forgesvc.net/api/v2";
-const CF_BASE_URL = "https://www.curseforge.com/minecraft/modpacks/";
 
 function createFolder(path) {
     try {
@@ -23,40 +21,17 @@ function createFolder(path) {
 
 /**
  * 
- * @param {string} projectUrl project URL or slug
- * @returns {string|null} project id
+ * @param {string} projectTitle project title
+ * @returns { Promise<string|null> } project id
  */
-async function getProjectIdByUrl(projectUrl) {
-    if (projectUrl.match(/^https?:\/\//i) === null) {
-        projectUrl = `${CF_BASE_URL}${projectUrl}`;
-    }
-    try {
-        const jsdom = await JSDOM.fromURL(projectUrl);
-        const projectId = Array.from(jsdom.window.document.querySelectorAll("div > span + span"))
-            .filter(x => x.previousElementSibling.innerText === "Project ID")
-            .map(x => x.innerText)
-            [0];
-        if (!projectId) {
-            return null;
-        }
-        return projectId;
-    } catch (err) {
-        console.error(err);
-        process.exit(1);
-    }    
-}
-
-/**
- * 
- * @param {string} projectSlug project slug
- * @returns { project } project
- */
-async function getProjectBySlug(projectSlug) {
-    const searchUrl = `${BASE_URL}/addon/search?gameId=432&categoryId=0&searchFilter=${projectSlug}`
+async function getProjectIdByTitle(projectTitle) {
+    const maxIndex = 10000;
+    const searchUrl = `${BASE_URL}/addon/search?gameId=432&categoryId=0&searchFilter=${projectTitle}`
         + `&pageSize=20&index=$index&sort=1&sortDescending=true&sectionId=4471`;
-    let results;
+    projectTitle = projectTitle.toLowerCase();
+    let results = [null];
     let index = 0;
-    while (index == 0 || results.length) {
+    while (results.length && index < maxIndex) {
         try {
             let url = searchUrl.replace("$index", index);
             let searchRes = await requestPromise.get(url);
@@ -65,18 +40,18 @@ async function getProjectBySlug(projectSlug) {
             console.error(err);
             process.exit(1);
         }
-        let project = results.filter(x => x.slug == projectSlug);
-        if (project.length) return project[0];
+        let project = results.filter(x => x.name.toLowerCase().startsWith(projectTitle));
+        if (project.length) return project[0].id;
         index += 20;
     }
-    console.error(`Can't find project ${projectSlug}.`);
+    console.error(`Can't find project with title "${projectTitle}".`);
     process.exit(1);
 }
 
 /**
  * 
  * @param {string} projectId project ID
- * @returns { project } project
+ * @returns { Promise<project> } project
  */
 async function getProjectById(projectId) {
     try {
@@ -96,7 +71,7 @@ async function getProjectById(projectId) {
 /**
  * 
  * @param {string} projectId project ID
- * @returns { { id: number, fileName: string, downloadUrl: string }[] } array of files
+ * @returns { Promise<{ id: number, fileName: string, downloadUrl: string }[]> } array of files
  */
 async function getProjectFiles(projectId) {
     try {
@@ -111,7 +86,7 @@ async function getProjectFiles(projectId) {
 /**
  * 
  * @param {string} projectSlugOrUrl project slug or complete url
- * @returns { { url: string, version: string, fileName: string } }
+ * @returns { Promise<{ url: string, version: string, fileName: string }> }
  */
 async function getLatestProjectFileUrl(projectSlugOrUrl) {
     const project = await getProjectByUrl(projectSlugOrUrl);
@@ -126,7 +101,7 @@ async function getLatestProjectFileUrl(projectSlugOrUrl) {
 /**
  * 
  * @param {string} projectId project ID
- * @returns { { url: string, version: string, fileName: string } }
+ * @returns { Promise<{ url: string, version: string, fileName: string }> }
  */
 async function getLatestProjectFileUrlById(projectId) {
     const project = await getProjectById(projectId);
@@ -142,7 +117,7 @@ async function getLatestProjectFileUrlById(projectId) {
  * 
  * @param {string} projectId project ID
  * @param {string} fileId file ID
- * @returns { file } file
+ * @returns { Promise<file> } file
  */
 async function getProjectFile(projectId, fileId) {
     const project = await getProjectById(projectId);
@@ -163,7 +138,7 @@ async function getProjectFile(projectId, fileId) {
 /**
  * 
  * @param { project } project project
- * @returns { file } file
+ * @returns { Promise<file> } file
  */
 async function getLatestProjectFile(project) {
     const file = project.latestFiles
@@ -178,6 +153,11 @@ function loadManifest(path) {
     return JSON.parse(manifest);
 }
 
+/**
+ * 
+ * @param { manifest } manifest 
+ * @returns { Promise<any> }
+ */
 async function generateFileListFromManifest(manifest) {
     return Promise.all(manifest.files
     .map(async file => {
@@ -189,10 +169,20 @@ async function generateFileListFromManifest(manifest) {
     }));
 }
 
+/**
+ * 
+ * @param {string} filename 
+ * @returns {string}
+ */
 function removeIllegalCharactersFromFilename(filename) {
     return filename.replace(/[/\\?%*:|"<>]/g, '-');
 }
 
+/**
+ * 
+ * @param {string} path 
+ * @returns {boolean}
+ */
 function fileExists(path) {
     try {
         return fs.statSync(path) !== null;
@@ -213,20 +203,12 @@ async function main(argv) {
         console.error("Usage: cmpdl <project id|project name>");
         process.exit(1);
     }
-    const project = argv[2];
-    let latest;
+    let project = argv[2];
     if (isNaN(parseInt(project, 10))) {
         console.log("Searching for project main file");
-        const projectId = await getProjectIdByUrl(project);
-        if (projectId === null) {
-            console.error(`ERROR: Project not found.`);
-            process.exit(1);
-        }
-        latest = await getLatestProjectFileUrlById(projectId);
+        project = await getProjectIdByTitle(project);
     }
-    else {
-        latest = await getLatestProjectFileUrlById(project);
-    }
+    const latest = await getLatestProjectFileUrlById(project);
     createFolder("./modpacks");
     const projectFolderName = removeIllegalCharactersFromFilename(latest.version);
     createFolder('./modpacks/' + projectFolderName);
