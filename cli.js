@@ -6,6 +6,7 @@ const extractZip = promisify(require('extract-zip'));
 const path = require('path');
 const requestPromise = require('request-promise-native');
 const BASE_URL = "https://addons-ecs.forgesvc.net/api/v2";
+// unofficial CurseForge API docs: https://curseforgeapi.docs.apiary.io/
 
 function createFolder(path) {
     try {
@@ -84,6 +85,38 @@ async function getProjectFiles(projectId) {
 
 /**
  * 
+ * @param {string} projectId project ID
+ * @param {string} fileId file ID
+ * @returns { Promise<fileMeta> } cached file metadata from https://cursemeta.dries007.net/
+ */
+async function getCachedProjectFile(projectId, fileId) {
+    try {
+        const res = await requestPromise.get(`https://cursemeta.dries007.net/${projectId}/${fileId}.json`)
+        return JSON.parse(res);
+    } catch (err) {
+        console.error(err);
+        process.exit(1);
+    }
+}
+
+/**
+ * 
+ * @param {string} projectId project ID
+ * @param {string} fileId file ID
+ * @returns { Promise<addonFileMeta> } addon file metadata from CurseForge API
+ */
+async function getAddonFile(projectId, fileId) {
+    try {
+        const res = await requestPromise.get(`https://addons-ecs.forgesvc.net/api/v2/addon/${projectId}/file/${fileId}`)
+        return JSON.parse(res);
+    } catch (err) {
+        console.error(err);
+        process.exit(1);
+    }
+}
+
+/**
+ * 
  * @param {string} projectSlugOrUrl project slug or complete url
  * @returns { Promise<{ url: string, version: string, fileName: string }> }
  */
@@ -119,16 +152,31 @@ async function getLatestProjectFileUrlById(projectId) {
  * @returns { Promise<file> } file
  */
 async function getProjectFile(projectId, fileId) {
+    const addonFile = await getAddonFile(projectId, fileId);
+    if (addonFile !== null) {
+        return addonFile;
+    }
+    // project's lastest files
     const project = await getProjectById(projectId);
     const file = project.latestFiles.filter(x => x.id == fileId);
     if (file.length) {
         return file[0];
     }
+    // all project's files
     const projectFiles = await getProjectFiles(projectId);
     const file2 = projectFiles.filter(x => x.id == fileId);
     if (file2.length)
     {
         return file2[0];
+    }
+    // cached project meta data
+    const cachedProjectFile = await getCachedProjectFile(projectId, fileId);
+    if (cachedProjectFile !== null)
+    {
+        return {
+            fileName: cachedProjectFile.FileName,
+            downloadUrl: cachedProjectFile.DownloadURL,
+        };
     }
     console.error(`File ${fileId} not found in project ${projectId}.`);
     process.exit(1);
