@@ -13,7 +13,7 @@ Find the project ID on the modpack's CurseForge page.
 
 ![](img/3.png)
 
-Open your terminal/cmd, enter the directory when you want to download modpack and type `cmpdl <project id>`
+Open your terminal/cmd, enter the directory where you want to download modpack and type `cmpdl <project id>`
 
 For example, [Project Ozone Lite (https://www.curseforge.com/minecraft/modpacks/project-ozone-lite)](https://www.curseforge.com/minecraft/modpacks/project-ozone-lite)
 ```bash
@@ -25,12 +25,15 @@ Or you can try using the project name taken from modpack url, but this method is
 
 ![](img/1.png)  
 
-Now just open your terminal/cmd, enter the directory when you want to download modpack and type `cmpdl <project name>`
+Now just open your terminal/cmd, enter the directory where you want to download modpack and type `cmpdl <project name>`
 
 For example, [Project Ozone Lite (https://www.curseforge.com/minecraft/modpacks/project-ozone-lite)](https://www.curseforge.com/minecraft/modpacks/project-ozone-lite)
 ```bash
     cmpdl project-ozone-light
 ```
+
+### Using Project and File ID
+To download a version other than the latest file in the project, find the file ID at the end of  the URL to the download page, and type `cmpdl <project id> <file id>`
 
 # Installation
 ## Install node with npm for your operating system from [here](https://nodejs.org/en/)

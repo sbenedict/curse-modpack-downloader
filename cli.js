@@ -149,6 +149,20 @@ async function getLatestProjectFileUrlById(projectId) {
  * 
  * @param {string} projectId project ID
  * @param {string} fileId file ID
+ * @returns { Promise<{ url: string, version: string, fileName: string }> }
+ */
+async function getProjectFileUrlByFileId(projectId, fileId) {
+    const file = await getAddonFile(projectId, fileId);
+    return {
+        url: file.downloadUrl,
+        version: file.displayName,
+        fileName: file.fileName
+    }
+}
+/**
+ * 
+ * @param {string} projectId project ID
+ * @param {string} fileId file ID
  * @returns { Promise<file> } file
  */
 async function getProjectFile(projectId, fileId) {
@@ -247,7 +261,7 @@ function fileExists(path) {
  */
 async function main(argv) {
     if(argv.length < 3) {
-        console.error("Usage: cmpdl <project id|project name>");
+        console.error("Usage: cmpdl <project id|project name> <file id>");
         process.exit(1);
     }
     let project = argv[2];
@@ -255,7 +269,8 @@ async function main(argv) {
         console.log("Searching for project main file");
         project = await getProjectIdByTitle(project);
     }
-    const latest = await getLatestProjectFileUrlById(project);
+    const latest = argv.length < 4 ? await getLatestProjectFileUrlById(project)
+        : await getProjectFileUrlByFileId(project, argv[3]);
     createFolder("./modpacks");
     const projectFolderName = removeIllegalCharactersFromFilename(latest.version);
     createFolder('./modpacks/' + projectFolderName);
@@ -263,7 +278,7 @@ async function main(argv) {
     const projectArchivePath = `${projectFolderPath}/${latest.fileName}`
 
     if (!fileExists(projectArchivePath)) {
-        console.log("Downloading project main file v." + latest.version);
+        console.log("Downloading project main file:" + latest.version);
         await downloadFile(latest.url, projectArchivePath);
 
         console.log("Extracting...");
