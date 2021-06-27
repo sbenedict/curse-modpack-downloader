@@ -2,7 +2,7 @@
 const downloadFile = require('./download-file');
 const fs = require('fs-extra');
 const { promisify } = require('util');
-const extractZip = promisify(require('extract-zip'));
+const extractZip = require('extract-zip');
 const path = require('path');
 const requestPromise = require('request-promise-native');
 const BASE_URL = "https://addons-ecs.forgesvc.net/api/v2";
@@ -280,9 +280,11 @@ async function main(argv) {
     if (!fileExists(projectArchivePath)) {
         console.log("Downloading project main file:" + latest.version);
         await downloadFile(latest.url, projectArchivePath);
-
+    }
+    const projectExtractedPath = path.join(projectFolderPath, 'extracted');
+    if (!fileExists(path.join(projectExtractedPath, projectArchivePath))) {
         console.log("Extracting...");
-        await extractZip(projectArchivePath, {dir: path.join(projectFolderPath, 'extracted')});
+        await extractZip(projectArchivePath, {dir: projectExtractedPath});
         console.log("Extracted");
     }
 
@@ -313,7 +315,7 @@ async function main(argv) {
     if(manifest.overrides) {
         const overridesDir = path.join(projectFolderPath, "extracted", manifest.overrides);
         console.log("Copying overrides...");
-        fs.copySync(overridesDir, dotMinecraft, { overwrite: true });
+        fs.moveSync(overridesDir, dotMinecraft, { overwrite: true });
         console.log("Copied overrides!");
     }
     console.log("Finished!")
