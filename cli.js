@@ -257,6 +257,19 @@ function fileExists(path) {
 
 /**
  * 
+ * @param { string } src Source path
+ * @param { string } dest Destination path
+ * @returns { Promise<void> } file
+ */
+async function moveFolder(src, dest) {
+    const files = await fs.readdir(src);
+    await Promise.all(
+        files.map(f => fs.move(path.join(src, f), path.join(dest, f), { overwrite: true }))
+    );
+}
+
+/**
+ * 
  * @param {string[]} argv 
  */
 async function main(argv) {
@@ -302,12 +315,21 @@ async function main(argv) {
     console.log(`There's ${total} mods to download...`);
     console.log("Starting downloading mods...");
     
-    for(let i = 0; i < total; i++) {
+    const maxWidth = `(${total}/${total}) `.length;
+    for (let i = 0; i < total; i++) {
         let progress = `(${downloaded + 1}/${total}) `;
-        let maxWidth = `(${total}/${total}) `.length;
-        if(progress.length < maxWidth)
+        if (progress.length < maxWidth)
             progress = progress + ' '.repeat(maxWidth - progress.length);
-        await downloadFile(fileList[i].downloadUrl, path.join(modsPath, fileList[i].name), progress);
+        const destFile = path.join(modsPath, fileList[i].name);
+        let fileName = fileList[i].name;
+        if (fileName.length < 40)
+            fileName = fileName + ' '.repeat(40 - fileName.length);
+        if (fileExists(destFile) && fs.statSync(destFile).size > 0) {
+            console.log(`${progress}${fileName} Already downloaded!`);
+        }
+        else {
+            await downloadFile(fileList[i].downloadUrl, destFile, progress);
+        }
         downloaded++;
     }
     console.log("Finished downloading");
@@ -315,7 +337,8 @@ async function main(argv) {
     if(manifest.overrides) {
         const overridesDir = path.join(projectFolderPath, "extracted", manifest.overrides);
         console.log("Copying overrides...");
-        fs.moveSync(overridesDir, dotMinecraft, { overwrite: true });
+        await moveFolder(overridesDir, dotMinecraft);
+        fs.rmdir(overridesDir);
         console.log("Copied overrides!");
     }
     console.log("Finished!")
