@@ -295,7 +295,7 @@ async function main(argv) {
         await downloadFile(latest.url, projectArchivePath);
     }
     const projectExtractedPath = path.join(projectFolderPath, 'extracted');
-    if (!fileExists(path.join(projectExtractedPath, projectArchivePath))) {
+    if (!fileExists(path.join(projectExtractedPath, "manifest.json"))) {
         console.log("Extracting...");
         await extractZip(projectArchivePath, {dir: projectExtractedPath});
         console.log("Extracted");
