@@ -59,11 +59,9 @@ async function getProjectById(projectId) {
         return JSON.parse(res);
     } catch (err) {
         if (err.statusCode == 404) {
-            console.error(`Can't find project ${projectId}.`);
+            return null;
         }
-        else {
-            console.error(err);
-        }
+        console.error(err);
         process.exit(1);
     }
 }
@@ -78,6 +76,9 @@ async function getProjectFiles(projectId) {
         const res = await requestPromise.get(`${BASE_URL}/addon/${projectId}/files`);
         return JSON.parse(res);
     } catch (err) {
+        if (err.statusCode === 404) {
+            return null;
+        }
         console.error(err);
         process.exit(1);
     }
@@ -94,6 +95,9 @@ async function getCachedProjectFile(projectId, fileId) {
         const res = await requestPromise.get(`https://cursemeta.dries007.net/${projectId}/${fileId}.json`)
         return JSON.parse(res);
     } catch (err) {
+        if (err.statusCode === 404) {
+            return null;
+        }
         console.error(err);
         process.exit(1);
     }
@@ -107,9 +111,12 @@ async function getCachedProjectFile(projectId, fileId) {
  */
 async function getAddonFile(projectId, fileId) {
     try {
-        const res = await requestPromise.get(`https://addons-ecs.forgesvc.net/api/v2/addon/${projectId}/file/${fileId}`)
+        const res = await requestPromise.get(`${BASE_URL}/addon/${projectId}/file/${fileId}`)
         return JSON.parse(res);
     } catch (err) {
+        if (err.statusCode === 404) {
+            return null;
+        }
         console.error(err);
         process.exit(1);
     }
@@ -170,18 +177,22 @@ async function getProjectFile(projectId, fileId) {
     if (addonFile !== null) {
         return addonFile;
     }
-    // project's lastest files
+    // project's latest files
     const project = await getProjectById(projectId);
-    const file = project.latestFiles.filter(x => x.id == fileId);
-    if (file.length) {
-        return file[0];
+    if (project !== null) {
+        const file = project.latestFiles.filter(x => x.id == fileId);
+        if (file.length) {
+            return file[0];
+        }
     }
     // all project's files
     const projectFiles = await getProjectFiles(projectId);
-    const file2 = projectFiles.filter(x => x.id == fileId);
-    if (file2.length)
-    {
-        return file2[0];
+    if (projectFiles !== null) {
+        const file2 = projectFiles.filter(x => x.id == fileId);
+        if (file2.length)
+        {
+            return file2[0];
+        }
     }
     // cached project meta data
     const cachedProjectFile = await getCachedProjectFile(projectId, fileId);
