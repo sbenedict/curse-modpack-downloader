@@ -194,7 +194,7 @@ async function moveFolder(src, dest) {
  * @param {string[]} argv 
  */
 async function main(argv) {
-    if(argv.length < 3) {
+    if (argv.length < 3) {
         console.error("Usage: cmpdl <project id|project name> <file id>");
         process.exit(1);
     }
@@ -205,6 +205,7 @@ async function main(argv) {
     }
     const latest = argv.length < 4 ? await getLatestProjectFileUrlById(project)
         : await getProjectFileUrlByFileId(project, argv[3]);
+
     createFolder("./modpacks");
     const projectFolderName = removeIllegalCharactersFromFilename(latest.version);
     createFolder('./modpacks/' + projectFolderName);
@@ -215,14 +216,20 @@ async function main(argv) {
         console.log("Downloading project main file:" + latest.version);
         await downloadFile(latest.url, projectArchivePath);
     }
+
     const projectExtractedPath = path.join(projectFolderPath, 'extracted');
     if (!fileExists(path.join(projectExtractedPath, "manifest.json"))) {
         console.log("Extracting...");
         await extractZip(projectArchivePath, {dir: projectExtractedPath});
         console.log("Extracted");
     }
-
+    
+    if (!fileExists(path.join(projectExtractedPath, "manifest.json"))) {
+        console.error("Invalid project file. manifest.json not found.");
+        process.exit(1);
+    }
     const manifest = loadManifest(path.join(projectFolderPath, "extracted", "manifest.json"));
+
     const dotMinecraft = path.join(projectFolderPath, ".minecraft");
     createFolder(dotMinecraft);
     const modsPath = path.join(dotMinecraft, "mods");
@@ -255,16 +262,17 @@ async function main(argv) {
     }
     console.log("Finished downloading");
     console.log("Finishing job...");
-    if(manifest.overrides) {
+    if (manifest.overrides) {
         const overridesDir = path.join(projectFolderPath, "extracted", manifest.overrides);
         console.log("Copying overrides...");
         await moveFolder(overridesDir, dotMinecraft);
-        fs.rmdir(overridesDir);
+        await fs.rmdir(overridesDir);
         console.log("Copied overrides!");
     }
     console.log("Finished!")
+    console.log("")
     console.log(`Now you have to install minecraft ${manifest.minecraft.version}`);
-    if(manifest.minecraft.modLoaders) {
+    if (manifest.minecraft.modLoaders) {
         console.log('Then you need to install mod loaders: ');
         manifest.minecraft.modLoaders.forEach(modLoader => console.log(modLoader.id));
     }
