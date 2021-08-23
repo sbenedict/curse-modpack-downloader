@@ -1,11 +1,9 @@
 #!/usr/bin/env node
+const CurseApi = require('./curse-api');
 const downloadFile = require('./download-file');
 const fs = require('fs-extra');
-const { promisify } = require('util');
 const extractZip = require('extract-zip');
 const path = require('path');
-const requestPromise = require('request-promise-native');
-const BASE_URL = "https://addons-ecs.forgesvc.net/api/v2";
 // unofficial CurseForge API docs: https://curseforgeapi.docs.apiary.io/
 
 function createFolder(path) {
@@ -25,101 +23,13 @@ function createFolder(path) {
  * @returns { Promise<string|null> } project id
  */
 async function getProjectIdByTitle(projectTitle) {
-    const maxIndex = 10000;
-    const searchUrl = `${BASE_URL}/addon/search?gameId=432&categoryId=0&searchFilter=${projectTitle}`
-        + `&pageSize=20&index=$index&sort=1&sortDescending=true&sectionId=4471`;
-    projectTitle = projectTitle.toLowerCase();
-    let results = [null];
-    let index = 0;
-    while (results.length && index < maxIndex) {
-        try {
-            let url = searchUrl.replace("$index", index);
-            let searchRes = await requestPromise.get(url);
-            results = JSON.parse(searchRes);
-        } catch (err) {
-            console.error(err);
-            process.exit(1);
-        }
-        let project = results.filter(x => x.name.toLowerCase().startsWith(projectTitle));
-        if (project.length) return project[0].id;
-        index += 20;
-    }
-    console.error(`Can't find project with title "${projectTitle}".`);
-    process.exit(1);
-}
-
-/**
- * 
- * @param {string} projectId project ID
- * @returns { Promise<project> } project
- */
-async function getProjectById(projectId) {
-    try {
-        const res = await requestPromise.get(`${BASE_URL}/addon/${projectId}`);
-        return JSON.parse(res);
-    } catch (err) {
-        if (err.statusCode == 404) {
-            return null;
-        }
-        console.error(err);
+    const project = await CurseApi.getProjectByTitle(projectTitle);
+    if (project === null)
+    {
+        console.error(`Can't find project with title "${projectTitle}".`);
         process.exit(1);
     }
-}
-
-/**
- * 
- * @param {string} projectId project ID
- * @returns { Promise<{ id: number, fileName: string, downloadUrl: string }[]> } array of files
- */
-async function getProjectFiles(projectId) {
-    try {
-        const res = await requestPromise.get(`${BASE_URL}/addon/${projectId}/files`);
-        return JSON.parse(res);
-    } catch (err) {
-        if (err.statusCode === 404) {
-            return null;
-        }
-        console.error(err);
-        process.exit(1);
-    }
-}
-
-/**
- * 
- * @param {string} projectId project ID
- * @param {string} fileId file ID
- * @returns { Promise<fileMeta> } cached file metadata from https://cursemeta.dries007.net/
- */
-async function getCachedProjectFile(projectId, fileId) {
-    try {
-        const res = await requestPromise.get(`https://cursemeta.dries007.net/${projectId}/${fileId}.json`)
-        return JSON.parse(res);
-    } catch (err) {
-        if (err.statusCode === 404) {
-            return null;
-        }
-        console.error(err);
-        process.exit(1);
-    }
-}
-
-/**
- * 
- * @param {string} projectId project ID
- * @param {string} fileId file ID
- * @returns { Promise<addonFileMeta> } addon file metadata from CurseForge API
- */
-async function getAddonFile(projectId, fileId) {
-    try {
-        const res = await requestPromise.get(`${BASE_URL}/addon/${projectId}/file/${fileId}`)
-        return JSON.parse(res);
-    } catch (err) {
-        if (err.statusCode === 404) {
-            return null;
-        }
-        console.error(err);
-        process.exit(1);
-    }
+    return project.id;
 }
 
 /**
@@ -128,7 +38,7 @@ async function getAddonFile(projectId, fileId) {
  * @returns { Promise<{ url: string, version: string, fileName: string }> }
  */
 async function getLatestProjectFileUrl(projectSlugOrUrl) {
-    const project = await getProjectByUrl(projectSlugOrUrl);
+    const project = await CurseApi.getProjectByUrl(projectSlugOrUrl);
     const defaultFile = await getLatestProjectFile(project);
     return {
         url: defaultFile.downloadUrl,
@@ -143,7 +53,7 @@ async function getLatestProjectFileUrl(projectSlugOrUrl) {
  * @returns { Promise<{ url: string, version: string, fileName: string }> }
  */
 async function getLatestProjectFileUrlById(projectId) {
-    const project = await getProjectById(projectId);
+    const project = await CurseApi.getProjectById(projectId);
     const defaultFile = await getLatestProjectFile(project);
     return {
         url: defaultFile.downloadUrl,
@@ -159,7 +69,7 @@ async function getLatestProjectFileUrlById(projectId) {
  * @returns { Promise<{ url: string, version: string, fileName: string }> }
  */
 async function getProjectFileUrlByFileId(projectId, fileId) {
-    const file = await getAddonFile(projectId, fileId);
+    const file = await CurseApi.getAddonFile(projectId, fileId);
     return {
         url: file.downloadUrl,
         version: file.displayName,
@@ -173,12 +83,12 @@ async function getProjectFileUrlByFileId(projectId, fileId) {
  * @returns { Promise<file> } file
  */
 async function getProjectFile(projectId, fileId) {
-    const addonFile = await getAddonFile(projectId, fileId);
+    const addonFile = await CurseApi.getAddonFile(projectId, fileId);
     if (addonFile !== null) {
         return addonFile;
     }
     // project's latest files
-    const project = await getProjectById(projectId);
+    const project = await CurseApi.getProjectById(projectId);
     if (project !== null) {
         const file = project.latestFiles.filter(x => x.id == fileId);
         if (file.length) {
@@ -186,7 +96,7 @@ async function getProjectFile(projectId, fileId) {
         }
     }
     // all project's files
-    const projectFiles = await getProjectFiles(projectId);
+    const projectFiles = await CurseApi.getProjectFiles(projectId);
     if (projectFiles !== null) {
         const file2 = projectFiles.filter(x => x.id == fileId);
         if (file2.length)
@@ -195,7 +105,7 @@ async function getProjectFile(projectId, fileId) {
         }
     }
     // cached project meta data
-    const cachedProjectFile = await getCachedProjectFile(projectId, fileId);
+    const cachedProjectFile = await CurseApi.getCachedProjectFile(projectId, fileId);
     if (cachedProjectFile !== null)
     {
         return {
