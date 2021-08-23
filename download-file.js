@@ -1,8 +1,9 @@
-const request = require("request");
 const cliProgress = require('cli-progress');
-const requestProgress = require('request-progress');
-const fs = require("fs");
+const fs = require("fs-extra");
 const path = require("path");
+const { promisify } = require("util");
+const stream = require('stream');
+const got = require('got');
 
 /**
  * Downloads file from given url and saves it to given targetPath
@@ -12,15 +13,17 @@ const path = require("path");
  */
 module.exports = function downloadFile(url, targetPath, additionalInfo = "") {
     return new Promise((resolve, reject) => {
+        const tempTargetPath = targetPath + '.downloading';
+        fs.removeSync(tempTargetPath);
         /** @type { cliProgress.Bar } */
         let bar = null;
         let filename = path.basename(targetPath);
-        //If filename is too long it will short it
-        if(filename.length > 40) {
+        // If filename is too long it will short it
+        if (filename.length > 40) {
             filename = filename.substring(0, 30) + "..." + filename.substring(filename.length - 7);
         }
-        //If filename is too short it will add some padding.
-        if(filename.length < 40) {
+        // If filename is too short it will add some padding.
+        if (filename.length < 40) {
             filename = filename + ' '.repeat(40 - filename.length);
         }
         function createBar() {
@@ -29,31 +32,69 @@ module.exports = function downloadFile(url, targetPath, additionalInfo = "") {
                 barCompleteChar: "#"
             });
         }
-        requestProgress(
-                request.get(url), 
-                {
-                    throttle: 100
-                }
-            )
-            .on('progress', state => {
+
+        let started = new Date();
+        function updateAndGetSpeed(transferred) {
+            const elapsedSeconds = (new Date() - started) / 1000;
+            const bytesPerSecond = elapsedSeconds <= 0 ? 0 : transferred / elapsedSeconds;
+            return bytesPerSecond;
+        }
+
+        const pipeline = promisify(stream.pipeline)
+        const gotStream = got.stream(url)
+
+        gotStream.on('downloadProgress', progress => {
+            if (progress.total) {
                 if (!bar) {
+                    started = new Date();
                     createBar();
-                    bar.start(Math.floor(state.size.total / 1024), 0);
+                    bar.start(Math.floor(progress.total / 1024), 0);
                 }
-                bar.update(Math.floor(state.size.transferred / 1024), {
-                    speed: Math.floor(state.speed / 1024)
-                });
-            })
-            .on('end', () => {
-                if(!bar) {
+                const speed = updateAndGetSpeed(progress.transferred);
+                bar.update(Math.floor(progress.transferred / 1024), { speed: Math.floor(speed / 1024) });
+            }
+        });
+
+        pipeline(gotStream, fs.createWriteStream(tempTargetPath))
+            .then(() => {
+                if (!bar) {
+                    started = new Date();
                     createBar();
                     bar.start(1, 0);
                 }
                 bar.update(bar.getTotal());
-                bar.stop();
+                fs.renameSync(tempTargetPath, targetPath);
                 resolve();
             })
-            .on('err', reject)
-            .pipe(fs.createWriteStream(targetPath));
+            .catch(reject)
+            .finally(() => {
+                if (bar) bar.stop();
+            });
+        // requestProgress(
+        //         request.get(url), 
+        //         {
+        //             throttle: 100
+        //         }
+        //     )
+        //     .on('progress', state => {
+        //         if (!bar) {
+        //             createBar();
+        //             bar.start(Math.floor(state.size.total / 1024), 0);
+        //         }
+        //         bar.update(Math.floor(state.size.transferred / 1024), {
+        //             speed: Math.floor(state.speed / 1024)
+        //         });
+        //     })
+        //     .on('end', () => {
+        //         if(!bar) {
+        //             createBar();
+        //             bar.start(1, 0);
+        //         }
+        //         bar.update(bar.getTotal());
+        //         bar.stop();
+        //         resolve();
+        //     })
+        //     .on('err', reject)
+        //     .pipe(fs.createWriteStream(targetPath));
     });
 }
