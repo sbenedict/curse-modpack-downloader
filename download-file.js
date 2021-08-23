@@ -26,14 +26,17 @@ module.exports = function downloadFile(url, targetPath, additionalInfo = "") {
         if (filename.length < 40) {
             filename = filename + ' '.repeat(40 - filename.length);
         }
-        function createBar() {
+        /** @type Date */
+        let started = null;
+        function createBar(total) {
+            started = new Date();
             bar = new cliProgress.Bar({
                 format: `${additionalInfo}${filename} [{bar}] {percentage}% | {value}KB/{total}KB ({speed} KB/s) {eta}s`,
                 barCompleteChar: "#"
             });
+            bar.start(total, 0);
         }
 
-        let started = new Date();
         function updateAndGetSpeed(transferred) {
             const elapsedSeconds = (new Date() - started) / 1000;
             const bytesPerSecond = elapsedSeconds <= 0 ? 0 : transferred / elapsedSeconds;
@@ -46,9 +49,7 @@ module.exports = function downloadFile(url, targetPath, additionalInfo = "") {
         gotStream.on('downloadProgress', progress => {
             if (progress.total) {
                 if (!bar) {
-                    started = new Date();
-                    createBar();
-                    bar.start(Math.floor(progress.total / 1024), 0);
+                    createBar(Math.floor(progress.total / 1024));
                 }
                 const speed = updateAndGetSpeed(progress.transferred);
                 bar.update(Math.floor(progress.transferred / 1024), { speed: Math.floor(speed / 1024) });
@@ -58,43 +59,16 @@ module.exports = function downloadFile(url, targetPath, additionalInfo = "") {
         pipeline(gotStream, fs.createWriteStream(tempTargetPath))
             .then(() => {
                 if (!bar) {
-                    started = new Date();
-                    createBar();
-                    bar.start(1, 0);
+                    createBar(1);
                 }
                 bar.update(bar.getTotal());
+                bar.stop();
                 fs.renameSync(tempTargetPath, targetPath);
                 resolve();
             })
-            .catch(reject)
-            .finally(() => {
+            .catch((reason) => {
                 if (bar) bar.stop();
-            });
-        // requestProgress(
-        //         request.get(url), 
-        //         {
-        //             throttle: 100
-        //         }
-        //     )
-        //     .on('progress', state => {
-        //         if (!bar) {
-        //             createBar();
-        //             bar.start(Math.floor(state.size.total / 1024), 0);
-        //         }
-        //         bar.update(Math.floor(state.size.transferred / 1024), {
-        //             speed: Math.floor(state.speed / 1024)
-        //         });
-        //     })
-        //     .on('end', () => {
-        //         if(!bar) {
-        //             createBar();
-        //             bar.start(1, 0);
-        //         }
-        //         bar.update(bar.getTotal());
-        //         bar.stop();
-        //         resolve();
-        //     })
-        //     .on('err', reject)
-        //     .pipe(fs.createWriteStream(targetPath));
+                reject(reason);
+            })
     });
 }
