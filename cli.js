@@ -1,9 +1,9 @@
 #!/usr/bin/env node
-const CurseApi = require('./curse-api');
-const downloadFile = require('./download-file');
-const fs = require('fs-extra');
-const extractZip = require('extract-zip');
-const path = require('path');
+const CurseApi = require("./curse-api");
+const downloadFile = require("./download-file");
+const fs = require("fs-extra");
+const extractZip = require("extract-zip");
+const path = require("path");
 // unofficial CurseForge API docs: https://curseforgeapi.docs.apiary.io/
 
 function createFolder(path) {
@@ -44,7 +44,7 @@ async function getLatestProjectFileUrl(projectSlugOrUrl) {
         url: defaultFile.downloadUrl,
         version: defaultFile.displayName,
         fileName: defaultFile.fileName
-    }
+    };
 }
 
 /**
@@ -59,7 +59,7 @@ async function getLatestProjectFileUrlById(projectId) {
         url: defaultFile.downloadUrl,
         version: defaultFile.displayName,
         fileName: defaultFile.fileName
-    }
+    };
 }
 
 /**
@@ -74,7 +74,7 @@ async function getProjectFileUrlByFileId(projectId, fileId) {
         url: file.downloadUrl,
         version: file.displayName,
         fileName: file.fileName
-    }
+    };
 }
 /**
  * 
@@ -125,8 +125,7 @@ async function getProjectFile(projectId, fileId) {
 async function getLatestProjectFile(project) {
     const file = project.latestFiles
         .filter(x => x.isServerPack === false)
-        .sort((a, b) => Date.parse(b.fileDate) - Date.parse(a.fileDate))
-        [0]
+        .sort((a, b) => Date.parse(b.fileDate) - Date.parse(a.fileDate))[0];
     return await getProjectFile(file.projectId, file.id);
 }
 
@@ -142,13 +141,13 @@ function loadManifest(path) {
  */
 async function generateFileListFromManifest(manifest) {
     return Promise.all(manifest.files
-    .map(async file => {
-        let f = await getProjectFile(file.projectID, file.fileID);
-        return {
-            name: f.fileName,
-            downloadUrl: f.downloadUrl
-        };
-    }));
+        .map(async file => {
+            let f = await getProjectFile(file.projectID, file.fileID);
+            return {
+                name: f.fileName,
+                downloadUrl: f.downloadUrl
+            };
+        }));
 }
 
 /**
@@ -157,7 +156,7 @@ async function generateFileListFromManifest(manifest) {
  * @returns {string}
  */
 function removeIllegalCharactersFromFilename(filename) {
-    return filename.replace(/[/\\?%*:|"<>]/g, '-');
+    return filename.replace(/[/\\?%*:|"<>]/g, "-");
 }
 
 /**
@@ -208,16 +207,16 @@ async function main(argv) {
 
     createFolder("./modpacks");
     const projectFolderName = removeIllegalCharactersFromFilename(latest.version);
-    createFolder('./modpacks/' + projectFolderName);
+    createFolder("./modpacks/" + projectFolderName);
     const projectFolderPath = path.resolve(`./modpacks/${projectFolderName}`);
-    const projectArchivePath = `${projectFolderPath}/${latest.fileName}`
+    const projectArchivePath = `${projectFolderPath}/${latest.fileName}`;
 
     if (!fileExists(projectArchivePath)) {
         console.log("Downloading project main file:" + latest.version);
         await downloadFile(latest.url, projectArchivePath);
     }
 
-    const projectExtractedPath = path.join(projectFolderPath, 'extracted');
+    const projectExtractedPath = path.join(projectFolderPath, "extracted");
     if (!fileExists(path.join(projectExtractedPath, "manifest.json"))) {
         console.log("Extracting...");
         await extractZip(projectArchivePath, {dir: projectExtractedPath});
@@ -247,11 +246,11 @@ async function main(argv) {
     for (let i = 0; i < total; i++) {
         let progress = `(${downloaded + 1}/${total}) `;
         if (progress.length < maxWidth)
-            progress = progress + ' '.repeat(maxWidth - progress.length);
+            progress = progress + " ".repeat(maxWidth - progress.length);
         const destFile = path.join(modsPath, fileList[i].name);
         let fileName = fileList[i].name;
         if (fileName.length < 40)
-            fileName = fileName + ' '.repeat(40 - fileName.length);
+            fileName = fileName + " ".repeat(40 - fileName.length);
         if (fileExists(destFile) && fs.statSync(destFile).size > 0) {
             console.log(`${progress}${fileName} Already downloaded!`);
         }
@@ -269,11 +268,11 @@ async function main(argv) {
         await fs.rmdir(overridesDir);
         console.log("Copied overrides!");
     }
-    console.log("Finished!")
-    console.log("")
+    console.log("Finished!");
+    console.log("");
     console.log(`Now you have to install minecraft ${manifest.minecraft.version}`);
     if (manifest.minecraft.modLoaders) {
-        console.log('Then you need to install mod loaders: ');
+        console.log("Then you need to install mod loaders: ");
         manifest.minecraft.modLoaders.forEach(modLoader => console.log(modLoader.id));
     }
     console.log(`After that copy everything from ${dotMinecraft}\nto your downloaded .minecraft and you're ready to go!`);

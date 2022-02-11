@@ -1,9 +1,9 @@
-const cliProgress = require('cli-progress');
+const cliProgress = require("cli-progress");
 const fs = require("fs-extra");
 const path = require("path");
 const { promisify } = require("util");
-const stream = require('stream');
-const got = require('got');
+const stream = require("stream");
+const got = require("got");
 
 /**
  * Downloads file from given url and saves it to given targetPath
@@ -13,7 +13,7 @@ const got = require('got');
  */
 module.exports = function downloadFile(url, targetPath, additionalInfo = "") {
     return new Promise((resolve, reject) => {
-        const tempTargetPath = targetPath + '.downloading';
+        const tempTargetPath = targetPath + ".downloading";
         fs.removeSync(tempTargetPath);
         /** @type { cliProgress.Bar } */
         let bar = null;
@@ -24,7 +24,7 @@ module.exports = function downloadFile(url, targetPath, additionalInfo = "") {
         }
         // If filename is too short it will add some padding.
         if (filename.length < 40) {
-            filename = filename + ' '.repeat(40 - filename.length);
+            filename = filename + " ".repeat(40 - filename.length);
         }
         /** @type Date */
         let started = null;
@@ -43,10 +43,10 @@ module.exports = function downloadFile(url, targetPath, additionalInfo = "") {
             return bytesPerSecond;
         }
 
-        const pipeline = promisify(stream.pipeline)
-        const gotStream = got.stream(url)
+        const pipeline = promisify(stream.pipeline);
+        const gotStream = got.stream(url);
 
-        gotStream.on('downloadProgress', progress => {
+        gotStream.on("downloadProgress", progress => {
             if (progress.total) {
                 if (!bar) {
                     createBar(Math.floor(progress.total / 1024));
@@ -69,6 +69,6 @@ module.exports = function downloadFile(url, targetPath, additionalInfo = "") {
             .catch((reason) => {
                 if (bar) bar.stop();
                 reject(reason);
-            })
+            });
     });
-}
+};

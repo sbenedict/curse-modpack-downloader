@@ -4,6 +4,7 @@
   "description": "A package that will download minecraft modpack from curseforge",
   "main": "cli.js",
   "scripts": {
+    "lint": "eslint .",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "ScuroGuardiano",
@@ -21,5 +22,12 @@
   },
   "bin": {
     "cmpdl": "./cli.js"
+  },
+  "devDependencies": {
+    "eslint": "^7.32.0",
+    "eslint-config-standard": "^16.0.3",
+    "eslint-plugin-import": "^2.25.4",
+    "eslint-plugin-node": "^11.1.0",
+    "eslint-plugin-promise": "^5.2.0"
   }
 }

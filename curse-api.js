@@ -1,4 +1,4 @@
-const got = require('got');
+const got = require("got");
 
 class CurseApiClient {
 
@@ -116,6 +116,6 @@ class CurseApiClient {
         }
     }
 
-};
+}
 
 module.exports = new CurseApiClient();
