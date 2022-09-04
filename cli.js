@@ -37,6 +37,7 @@ async function getProjectIdByTitle(projectTitle) {
  * @param {string} projectSlugOrUrl project slug or complete url
  * @returns { Promise<{ url: string, version: string, fileName: string }> }
  */
+// eslint-disable-next-line no-unused-vars
 async function getLatestProjectFileUrl(projectSlugOrUrl) {
     const project = await CurseApi.getProjectByUrl(projectSlugOrUrl);
     const defaultFile = await getLatestProjectFile(project);
@@ -126,7 +127,7 @@ async function getLatestProjectFile(project) {
     const file = project.latestFiles
         .filter(x => x.isServerPack === false)
         .sort((a, b) => Date.parse(b.fileDate) - Date.parse(a.fileDate))[0];
-    return await getProjectFile(file.projectId, file.id);
+    return await getProjectFile(file.modId, file.id);
 }
 
 function loadManifest(path) {

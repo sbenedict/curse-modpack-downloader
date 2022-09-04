@@ -1,12 +1,35 @@
+const fs = require("fs-extra");
 const got = require("got");
-
 class CurseApiClient {
 
     constructor() {
-        this.BASE_URL = "https://addons-ecs.forgesvc.net/api/v2";
+        this.defaultConfig = {
+            apiKey: "{put your api key here}"
+        };
+        this.configFileName = "curse-api-config.json";
+        this.config = this.getConfig();
+        this.BASE_URL = "https://api.curseforge.com";
+        //this.BASE_URL = "https://addons-ecs.forgesvc.net/api/v2";
         // unofficial CurseForge API docs: https://curseforgeapi.docs.apiary.io/
     
         this.cache = new Map();
+    }
+
+    /**
+     * 
+     * @returns { any } config
+     */
+    getConfig() {
+        if (!fs.existsSync(this.configFileName)) {
+            fs.writeJSONSync(this.configFileName, this.defaultConfig, { spaces: 4 });
+        }
+
+        var config = fs.readJsonSync(this.configFileName);
+        if (config.apiKey === this.defaultConfig.apiKey) {
+            console.error(`Set the apiKey in "${this.configFileName}"`);
+            process.exit(1);
+        }
+        return config;
     }
 
     /**
@@ -34,7 +57,13 @@ class CurseApiClient {
         while (results.length && index < maxIndex) {
             try {
                 searchParams.index = index;
-                results = await got(searchUrl, { searchParams: searchParams, cache: this.cache }).json();
+                results = await got(searchUrl,
+                    {
+                        searchParams: searchParams,
+                        headers: { "x-api-key": this.config.apiKey },
+                        cache: this.cache
+                    })
+                    .json().then(json => json.data);
             } catch (err) {
                 console.error(err);
                 process.exit(1);
@@ -53,7 +82,8 @@ class CurseApiClient {
      */
     async getProjectById(projectId) {
         try {
-            return await got(`${this.BASE_URL}/addon/${projectId}`, { cache: this.cache }).json();
+            return await got(`${this.BASE_URL}/v1/mods/${projectId}`, { headers: { "x-api-key": this.config.apiKey }, cache: this.cache })
+                .json().then(json => json.data);
         } catch (err) {
             if (err.constructor === got.HTTPError && err.response.statusCode === 404) {
                 return null;
@@ -70,7 +100,8 @@ class CurseApiClient {
      */
     async getProjectFiles(projectId) {
         try {
-            return await got(`${this.BASE_URL}/addon/${projectId}/files`, { cache: this.cache }).json();
+            return await got(`${this.BASE_URL}/addon/${projectId}/files`, { headers: { "x-api-key": this.config.apiKey }, cache: this.cache })
+                .json().then(json => json.data);
         } catch (err) {
             if (err.constructor === got.HTTPError && err.response.statusCode === 404) {
                 return null;
@@ -88,7 +119,7 @@ class CurseApiClient {
      */
     async getCachedProjectFile(projectId, fileId) {
         try {
-            return await got(`https://cursemeta.dries007.net/${projectId}/${fileId}.json`, { cache: this.cache }).json();
+            return await got(`https://cursemeta.dries007.net/${projectId}/${fileId}.json`, { headers: { "x-api-key": this.config.apiKey }, cache: this.cache }).json();
         } catch (err) {
             if (err.constructor === got.HTTPError && err.response.statusCode === 404) {
                 return null;
@@ -106,7 +137,8 @@ class CurseApiClient {
      */
     async getAddonFile(projectId, fileId) {
         try {
-            return await got(`${this.BASE_URL}/addon/${projectId}/file/${fileId}`, { cache: this.cache }).json();
+            return await got(`${this.BASE_URL}/v1/mods/${projectId}/files/${fileId}`, { headers: { "x-api-key": this.config.apiKey }, cache: this.cache })
+                .json().then(json => json.data);
         } catch (err) {
             if (err.constructor === got.HTTPError && err.response.statusCode === 404) {
                 return null;
