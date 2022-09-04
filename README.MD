@@ -35,12 +35,14 @@ For example, [Project Ozone Lite (https://www.curseforge.com/minecraft/modpacks/
 ### Using Project and File ID
 To download a version other than the latest file in the project, find the file ID at the end of  the URL to the download page, and type `cmpdl <project id> <file id>`
 
-# Installation
-## Install node with npm for your operating system from [here](https://nodejs.org/en/)
-And then run this command. Voilà it's installed
+## Installation
+- Install node with npm for your operating system from [nodejs.org](https://nodejs.org/en/)
+- Install globally in node with this command:
 ```bash
     npm install -g curse-modpack-downloader
 ```
+- Run the command `cmpdl`
+- Edit the `curse-api-config.json` adding your CurseForge API key.
 
 ## License
 MIT
