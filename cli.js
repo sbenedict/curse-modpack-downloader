@@ -176,6 +176,13 @@ function fileExists(path) {
     }
 }
 
+async function moveOverrides(src, dest) {
+    const files = await fs.readdir(src);
+    await Promise.all(
+        files.map(f => moveFolder(path.join(src, f), path.join(dest, f)))
+    );
+}
+
 /**
  * 
  * @param { string } src Source path
@@ -187,6 +194,7 @@ async function moveFolder(src, dest) {
     await Promise.all(
         files.map(f => fs.move(path.join(src, f), path.join(dest, f), { overwrite: true }))
     );
+    await fs.rmdir(src);
 }
 
 /**
@@ -265,7 +273,7 @@ async function main(argv) {
     if (manifest.overrides) {
         const overridesDir = path.join(projectFolderPath, "extracted", manifest.overrides);
         console.log("Copying overrides...");
-        await moveFolder(overridesDir, dotMinecraft);
+        await moveOverrides(overridesDir, dotMinecraft);
         await fs.rmdir(overridesDir);
         console.log("Copied overrides!");
     }
